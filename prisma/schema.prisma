@@ -1,0 +1,224 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities Activity[]
+
+  @@map("users")
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  name           String
+  code           String        @unique
+  totalMeters    Int           @default(0)
+  occupiedMeters Int           @default(0)  // Metros ocupados em locações ativas
+  pricePerMeter  Decimal       @default(0) @db.Decimal(10, 2)
+  isAvailable    Boolean       @default(true)
+  imageUrl       String?       // URL da imagem do produto
+  description    String?       // Descrição detalhada
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  bookingItems   BookingItem[]
+
+  @@map("products")
+}
+
+model Accessory {
+  id            String             @id @default(cuid())
+  name          String
+  code          String             @unique
+  totalQty      Int                @default(0)
+  occupiedQty   Int                @default(0)  // Quantidade ocupada em locações ativas
+  pricePerUnit  Decimal            @default(0) @db.Decimal(10, 2)
+  isAvailable   Boolean            @default(true)
+  imageUrl      String?            // URL da imagem do acessório
+  description   String?            // Descrição detalhada
+  category      String?            // Categoria do acessório
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  bookingAccessories BookingAccessory[]
+
+  @@map("accessories")
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  company   String?
+  document  String?   // CPF ou CNPJ
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[]
+
+  @@map("clients")
+}
+
+model Booking {
+  id           String             @id @default(cuid())
+  eventTitle   String
+  eventAddress String?            // Endereço do evento
+  startDate    DateTime
+  endDate      DateTime
+  clientId     String
+  totalValue   Decimal            @default(0) @db.Decimal(10, 2)
+  status       BookingStatus      @default(PENDING)
+  paymentStatus PaymentStatus     @default(PENDING)
+  notes        String?            // Observações da locação
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  client       Client             @relation(fields: [clientId], references: [id])
+  items        BookingItem[]
+  accessories  BookingAccessory[]
+  equipment    BookingEquipment[]
+
+  @@map("bookings")
+}
+
+model BookingItem {
+  id        String   @id @default(cuid())
+  bookingId String
+  productId String
+  meters    Int      @default(1)
+  price     Decimal  @db.Decimal(10, 2)
+  product   Product  @relation(fields: [productId], references: [id])
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_items")
+}
+
+model BookingAccessory {
+  id          String    @id @default(cuid())
+  bookingId   String
+  accessoryId String
+  qty         Int       @default(1)
+  price       Decimal   @db.Decimal(10, 2)
+  accessory   Accessory @relation(fields: [accessoryId], references: [id])
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_accessories")
+}
+
+model CompanySetting {
+  id       String @id @default(cuid())
+  name     String
+  address  String?
+  phone    String?
+  email    String?
+  cnpj     String?
+  logoUrl  String?
+
+  @@map("company_settings")
+}
+
+model Activity {
+  id          String      @id @default(cuid())
+  type        ActivityType
+  description String
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+
+  @@map("activities")
+}
+
+model Reminder {
+  id        String @id @default(cuid())
+  title     String
+  message   String
+  dueDate   DateTime
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("reminders")
+}
+
+model Equipment {
+  id                 String             @id @default(cuid())
+  name               String
+  code               String             @unique
+  description        String?
+  totalQty           Int                @default(0)
+  occupiedQty        Int                @default(0)  // Quantidade ocupada em locações ativas
+  pricePerUnit       Decimal            @default(0) @db.Decimal(10, 2)
+  isAvailable        Boolean            @default(true)
+  category           String?            // Categoria do equipamento (ex: "Som", "Iluminação", "Estrutura")
+  brand              String?            // Marca do equipamento
+  model              String?            // Modelo específico
+  imageUrl           String?            // URL da imagem do equipamento
+  serialNumber       String?            // Número de série
+  purchaseDate       DateTime?          // Data de compra
+  warrantyExpiry     DateTime?          // Data de expiração da garantia
+  maintenanceDate    DateTime?          // Próxima data de manutenção
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  bookingEquipment   BookingEquipment[]
+
+  @@map("equipment")
+}
+
+model BookingEquipment {
+  id          String    @id @default(cuid())
+  bookingId   String
+  equipmentId String
+  price       Decimal   @db.Decimal(10, 2)
+  qty         Int       @default(1)
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_equipment")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  HOLD
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+}
+
+enum ActivityType {
+  BOOKING_CREATED
+  BOOKING_UPDATED
+  BOOKING_CANCELLED
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  ACCESSORY_CREATED
+  ACCESSORY_UPDATED
+  EQUIPMENT_CREATED
+  EQUIPMENT_UPDATED
+  SYSTEM_UPDATE
+  USER_LOGIN
+  USER_LOGOUT
+}

@@ -1,0 +1,49 @@
+SISTEMA LED RENTAL - POSTGRESQL LOCAL
+=====================================
+
+COMO USAR:
+----------
+
+1. INSTALAR POSTGRESQL:
+   - Execute como administrador: .\install-postgresql.ps1
+   - Ou baixe de: https://www.postgresql.org/download/windows/
+
+2. CRIAR BANCO:
+   psql -U postgres -h localhost
+   CREATE DATABASE led_rental_db;
+   \q
+
+3. CONFIGURAR:
+   - Copie database.env para .env
+   - Ajuste a senha se necessário
+
+4. EXECUTAR:
+   npm install
+   npx prisma generate
+   npx prisma migrate dev --name init
+   npm run dev
+
+5. ACESSAR:
+   http://localhost:3000
+
+CONFIGURAÇÕES:
+--------------
+- Host: localhost
+- Porta: 5432
+- Usuário: postgres
+- Senha: postgres (ou a que você definiu)
+- Banco: led_rental_db
+
+ARQUIVOS IMPORTANTES:
+--------------------
+- install-postgresql.ps1 = Instala PostgreSQL
+- setup-postgresql.ps1 = Setup completo automático
+- database.env = Configurações do banco
+- prisma/schema.prisma = Estrutura do banco
+
+SE DER ERRO:
+------------
+- Verifique se PostgreSQL está rodando
+- Confirme senha no .env
+- Verifique porta 5432
+- Execute: npx prisma migrate reset

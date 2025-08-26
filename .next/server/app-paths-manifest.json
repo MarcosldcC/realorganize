@@ -1,0 +1,18 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/verificar-disponibilidade/page": "app/dashboard/verificar-disponibilidade/page.js",
+  "/dashboard/configuracoes/page": "app/dashboard/configuracoes/page.js",
+  "/dashboard/clients/page": "app/dashboard/clients/page.js",
+  "/dashboard/bookings/page": "app/dashboard/bookings/page.js",
+  "/api/availability/route": "app/api/availability/route.js",
+  "/api/dashboard/kpis/route": "app/api/dashboard/kpis/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/company-settings/route": "app/api/company-settings/route.js",
+  "/dashboard/products/page": "app/dashboard/products/page.js",
+  "/api/equipment/route": "app/api/equipment/route.js",
+  "/api/products/route": "app/api/products/route.js",
+  "/api/accessories/route": "app/api/accessories/route.js",
+  "/api/bookings/route": "app/api/bookings/route.js",
+  "/api/clients/route": "app/api/clients/route.js"
+}
