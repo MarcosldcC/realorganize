@@ -62,10 +62,12 @@ export default function DashboardPage() {
     try {
       const response = await fetch('/api/auth/me')
       if (!response.ok) {
+        console.log('❌ Sessão inválida, redirecionando para login')
         router.push('/login')
         return
       }
       const userData = await response.json()
+      console.log('✅ Usuário autenticado:', userData.user.name)
       setUser(userData.user)
     } catch (error) {
       console.error('Erro na autenticação:', error)

@@ -1,11 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-export async function GET() {
+// Função para obter companyId da sessão
+async function getCompanyIdFromSession(request: NextRequest): Promise<string | null> {
   try {
+    const sessionId = request.cookies.get('session-id')?.value
+    if (!sessionId) return null
+    
+    const parts = sessionId.split('_')
+    if (parts.length < 2) return null
+    
+    const userId = parts[1]
+    if (!userId) return null
+    
+    // Buscar usuário para obter companyId
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+    
+    return user?.companyId || null
+  } catch (error) {
+    console.error('Erro ao obter companyId:', error)
+    return null
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const companyId = await getCompanyIdFromSession(request)
+    
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
     // Buscar estoque atual (produtos, acessórios, equipamentos)
     const [products, accessories, equipment] = await Promise.all([
       prisma.product.findMany({
+        where: { companyId },
         select: {
           id: true,
           name: true,
@@ -15,6 +49,7 @@ export async function GET() {
         }
       }),
       prisma.accessory.findMany({
+        where: { companyId },
         select: {
           id: true,
           name: true,
@@ -24,6 +59,7 @@ export async function GET() {
         }
       }),
       prisma.equipment.findMany({
+        where: { companyId },
         select: {
           id: true,
           name: true,
@@ -37,6 +73,7 @@ export async function GET() {
     // Buscar locações ativas (que podem estar ocupando itens)
     const activeBookings = await prisma.booking.findMany({
       where: {
+        companyId,
         status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PENDING'] }
       },
       include: {

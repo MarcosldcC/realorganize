@@ -1,16 +1,52 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-export async function GET() {
+// Função para obter companyId da sessão
+async function getCompanyIdFromSession(request: NextRequest): Promise<string | null> {
   try {
+    const sessionId = request.cookies.get('session-id')?.value
+    if (!sessionId) return null
+    
+    const parts = sessionId.split('_')
+    if (parts.length < 2) return null
+    
+    const userId = parts[1]
+    if (!userId) return null
+    
+    // Buscar usuário para obter companyId
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+    
+    return user?.companyId || null
+  } catch (error) {
+    console.error('Erro ao obter companyId:', error)
+    return null
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const companyId = await getCompanyIdFromSession(request)
+    
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
     console.log('📊 Carregando KPIs do dashboard...')
     
     // Buscar dados do banco
-    const totalBookings = await prisma.booking.count()
+    const totalBookings = await prisma.booking.count({
+      where: { companyId }
+    })
     console.log(`  📅 Total de locações: ${totalBookings}`)
     
     const futureBookings = await prisma.booking.count({
       where: {
+        companyId,
         startDate: {
           gte: new Date()
         }
@@ -20,6 +56,7 @@ export async function GET() {
     
     const confirmedBookings = await prisma.booking.count({
       where: {
+        companyId,
         status: 'CONFIRMED'
       }
     })
@@ -27,6 +64,7 @@ export async function GET() {
     
     const holdBookings = await prisma.booking.count({
       where: {
+        companyId,
         status: 'HOLD'
       }
     })
@@ -34,6 +72,7 @@ export async function GET() {
 
     // Calcular receitas
     const bookings = await prisma.booking.findMany({
+      where: { companyId },
       select: {
         totalValue: true,
         status: true,
@@ -50,18 +89,26 @@ export async function GET() {
       .reduce((sum, booking) => sum + Number(booking.totalValue || 0), 0)
 
     // Buscar estatísticas de produtos
-    const totalProducts = await prisma.product.count()
+    const totalProducts = await prisma.product.count({
+      where: { companyId }
+    })
     const totalProductMeters = await prisma.product.aggregate({
+      where: { companyId },
       _sum: { totalMeters: true }
     })
     const totalProductMetersValue = totalProductMeters._sum.totalMeters || 0
 
     // Buscar estatísticas de clientes
-    const totalClients = await prisma.client.count()
+    const totalClients = await prisma.client.count({
+      where: { companyId }
+    })
 
     // Buscar estatísticas de equipamentos
-    const totalEquipment = await prisma.equipment.count()
+    const totalEquipment = await prisma.equipment.count({
+      where: { companyId }
+    })
     const totalEquipmentQty = await prisma.equipment.aggregate({
+      where: { companyId },
       _sum: { totalQty: true }
     })
     const totalEquipmentQtyValue = totalEquipmentQty._sum.totalQty || 0

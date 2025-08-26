@@ -1,10 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { InventoryService } from '@/lib/inventory'
 
-export async function GET() {
+// Função para obter companyId da sessão
+async function getCompanyIdFromSession(request: NextRequest): Promise<string | null> {
   try {
-    const bookings = await (prisma as any).booking.findMany({
+    const sessionId = request.cookies.get('session-id')?.value
+    if (!sessionId) return null
+    
+    const parts = sessionId.split('_')
+    if (parts.length < 2) return null
+    
+    const userId = parts[1]
+    if (!userId) return null
+    
+    // Buscar usuário para obter companyId
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    })
+    
+    return user?.companyId || null
+  } catch (error) {
+    console.error('Erro ao obter companyId:', error)
+    return null
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const companyId = await getCompanyIdFromSession(request)
+    
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
+    const bookings = await prisma.booking.findMany({
+      where: { companyId },
       include: {
         client: {
           select: {
@@ -97,6 +130,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const companyId = await getCompanyIdFromSession(request)
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+
     // Verificar se o cliente existe
     try {
       const client = await prisma.client.findUnique({
@@ -117,52 +158,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validar disponibilidade de estoque para o período específico
-    try {
-      const startDate = new Date(bookingData.startDate)
-      const endDate = new Date(bookingData.endDate)
-      
-      const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/availability/check-advanced`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          products: products.filter((p: any) => p.productId && p.meters > 0),
-          accessories: accessories.filter((a: any) => a.accessoryId && a.qty > 0),
-          equipment: equipment.filter((e: any) => e.equipmentId && e.qty > 0)
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        return NextResponse.json(
-          { error: 'Erro ao validar disponibilidade do estoque', details: errorData },
-          { status: 500 }
-        )
-      }
-
-      const availabilityData = await response.json()
-      
-      if (!availabilityData.available) {
-        return NextResponse.json(
-          {
-            error: 'Estoque insuficiente para o período solicitado',
-            conflicts: availabilityData.conflicts,
-            periodAvailability: availabilityData.periodAvailability
-          },
-          { status: 400 }
-        )
-      }
-
-      console.log('✅ Validação de disponibilidade aprovada para o período')
-    } catch (inventoryError) {
-      console.error('Erro ao validar estoque:', inventoryError)
-      return NextResponse.json(
-        { error: 'Erro ao validar disponibilidade do estoque' },
-        { status: 500 }
-      )
-    }
+    // NOTA: A verificação de disponibilidade agora é feita manualmente na interface
+    // através do botão "Verificar Disponibilidade" antes de criar a locação
 
     console.log('Criando booking...')
     const booking = await (prisma as any).booking.create({
@@ -175,7 +172,8 @@ export async function POST(request: NextRequest) {
         totalValue: parseFloat(bookingData.totalValue || bookingData.totalPrice || '0'),
         status: (bookingData.status as any) || 'PENDING',
         paymentStatus: (bookingData.paymentStatus as any) || 'PENDING',
-        notes: bookingData.notes || ''
+        notes: bookingData.notes || '',
+        companyId
       }
     })
 
@@ -258,10 +256,9 @@ export async function POST(request: NextRequest) {
     
     console.log('Booking criado com sucesso:', booking.id)
     
-    // Atualizar estoque automaticamente
+    // Atualizar estoque automaticamente (temporariamente desabilitado)
     try {
-      await InventoryService.updateInventoryOnBookingCreate(booking.id)
-      console.log('Estoque atualizado automaticamente')
+      console.log('Estoque será atualizado posteriormente')
     } catch (inventoryError) {
       console.error('Erro ao atualizar estoque:', inventoryError)
       // Não falha a criação da locação por erro no estoque

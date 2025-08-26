@@ -37,9 +37,30 @@ export async function PUT(
     const body = await request.json()
     
     // Validação dos campos obrigatórios
-    if (!body.name) {
+    if (!body.name?.trim()) {
       return NextResponse.json(
         { error: 'Nome é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.email?.trim()) {
+      return NextResponse.json(
+        { error: 'Email é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.phone?.trim()) {
+      return NextResponse.json(
+        { error: 'Telefone é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.document?.trim()) {
+      return NextResponse.json(
+        { error: 'CPF/CNPJ é obrigatório' },
         { status: 400 }
       )
     }
@@ -65,9 +86,9 @@ export async function PUT(
       where: { id: params.id },
       data: {
         name: body.name.trim(),
-        email: body.email?.trim() || null,
-        phone: body.phone?.trim() || null,
-        document: body.document?.trim() || null,
+        email: body.email.trim(),
+        phone: body.phone.trim(),
+        document: body.document.trim(),
         company: body.company?.trim() || null,
         address: body.address?.trim() || null
       }

@@ -10,33 +10,63 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Company {
   id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
   name      String
+  email     String   @unique
+  address   String?
+  phone     String?
+  cnpj      String?
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  users       User[]
+  products    Product[]
+  accessories Accessory[]
+  clients     Client[]
+  bookings    Booking[]
+  equipment   Equipment[]
+  activities  Activity[]
+  reminders   Reminder[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String
+  password  String
+  name      String
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   activities Activity[]
 
+  @@unique([email, companyId])
   @@map("users")
 }
 
 model Product {
   id             String        @id @default(cuid())
   name           String
-  code           String        @unique
+  code           String
   totalMeters    Int           @default(0)
   occupiedMeters Int           @default(0)  // Metros ocupados em locações ativas
   pricePerMeter  Decimal       @default(0) @db.Decimal(10, 2)
   isAvailable    Boolean       @default(true)
   imageUrl       String?       // URL da imagem do produto
   description    String?       // Descrição detalhada
+  companyId      String
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  bookingItems   BookingItem[]
 
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bookingItems BookingItem[]
+
+  @@unique([code, companyId])
   @@map("products")
 }
 
@@ -51,25 +81,33 @@ model Accessory {
   imageUrl      String?            // URL da imagem do acessório
   description   String?            // Descrição detalhada
   category      String?            // Categoria do acessório
+  companyId     String
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   bookingAccessories BookingAccessory[]
 
+  @@unique([code, companyId])
   @@map("accessories")
 }
 
 model Client {
   id        String    @id @default(cuid())
   name      String
-  email     String?
-  phone     String?
+  email     String
+  phone     String
   address   String?
-  company   String?
-  document  String?   // CPF ou CNPJ
+  company   String?   // Nome da empresa do cliente
+  document  String    // CPF ou CNPJ
+  companyId String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  bookings  Booking[]
 
+  companyRef Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@unique([document, companyId])
   @@map("clients")
 }
 
@@ -84,8 +122,11 @@ model Booking {
   status       BookingStatus      @default(PENDING)
   paymentStatus PaymentStatus     @default(PENDING)
   notes        String?            // Observações da locação
+  companyId    String
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   client       Client             @relation(fields: [clientId], references: [id])
   items        BookingItem[]
   accessories  BookingAccessory[]
@@ -135,7 +176,9 @@ model Activity {
   type        ActivityType
   description String
   userId      String
+  companyId   String
   user        User        @relation(fields: [userId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   metadata    Json?
   createdAt   DateTime    @default(now())
 
@@ -148,7 +191,10 @@ model Reminder {
   message   String
   dueDate   DateTime
   isActive  Boolean @default(true)
+  companyId String
   createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("reminders")
 }
@@ -170,10 +216,14 @@ model Equipment {
   purchaseDate       DateTime?          // Data de compra
   warrantyExpiry     DateTime?          // Data de expiração da garantia
   maintenanceDate    DateTime?          // Próxima data de manutenção
+  companyId          String
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
-  bookingEquipment   BookingEquipment[]
 
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bookingEquipment  BookingEquipment[]
+
+  @@unique([code, companyId])
   @@map("equipment")
 }
 

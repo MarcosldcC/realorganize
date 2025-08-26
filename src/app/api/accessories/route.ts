@@ -1,9 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-export async function GET() {
+// Função para obter companyId da sessão
+async function getCompanyIdFromSession(request: NextRequest): Promise<string | null> {
   try {
+    const sessionId = request.cookies.get('session-id')?.value
+    if (!sessionId) return null
+    
+    const parts = sessionId.split('_')
+    if (parts.length < 2) return null
+    
+    const userId = parts[1]
+    if (!userId) return null
+    
+    // Buscar usuário para obter companyId
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyId: true }
+    })
+    
+    return user?.companyId || null
+  } catch (error) {
+    console.error('Erro ao obter companyId:', error)
+    return null
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const companyId = await getCompanyIdFromSession(request)
+    
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
     const accessories = await prisma.accessory.findMany({
+      where: { companyId },
       orderBy: { createdAt: 'desc' }
     })
 
@@ -54,13 +89,22 @@ export async function POST(request: NextRequest) {
 
     console.log('Dados validados, criando acessório...')
     
+    const companyId = await getCompanyIdFromSession(request)
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
     const accessory = await prisma.accessory.create({
       data: {
         name: name.trim(),
         code: code.trim().toUpperCase(),
         description: description?.trim() || null,
         totalQty: parseInt(totalQty),
-        pricePerUnit: parseFloat(pricePerUnit)
+        pricePerUnit: parseFloat(pricePerUnit),
+        companyId
       }
     })
 

@@ -701,6 +701,72 @@ export default function BookingsPage() {
     )
   }
 
+  const checkAvailability = async () => {
+    setIsChecking(true)
+    try {
+      const response = await fetch('/api/availability/check-advanced', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          products: selectedProducts.map(p => ({
+            productId: p.productId,
+            meters: p.meters
+          })),
+          accessories: selectedAccessories.map(a => ({
+            accessoryId: a.accessoryId,
+            qty: a.qty
+          })),
+          equipment: selectedEquipment.map(e => ({
+            equipmentId: e.equipmentId,
+            qty: e.qty
+          }))
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.available) {
+          showToast({
+            type: 'success',
+            title: '✅ Disponibilidade Confirmada!',
+            message: 'Todos os itens estão disponíveis para o período solicitado. Pode prosseguir com a criação da locação.'
+          })
+        } else {
+          // Mostrar detalhes dos conflitos
+          const conflicts = data.conflicts || []
+          const conflictDetails = conflicts.map((conflict: any) => 
+            `${conflict.type}: ${conflict.name} - ${conflict.reason}`
+          ).join('\n')
+          
+          showToast({
+            type: 'error',
+            title: '❌ Estoque Insuficiente',
+            message: `Alguns itens não estão disponíveis:\n${conflictDetails}`,
+            duration: 8000
+          })
+        }
+      } else {
+        const errorData = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Erro na Verificação de Disponibilidade',
+          message: errorData.error || 'Erro desconhecido'
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao verificar disponibilidade:', error)
+      showToast({
+        type: 'error',
+        title: 'Erro na Verificação de Disponibilidade',
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      })
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -1041,21 +1107,39 @@ export default function BookingsPage() {
                 ))}
               </div>
 
-              {/* Verificação de Disponibilidade - Removida */}
-               <div className="border-t pt-6">
-                 <h4 className="text-lg font-medium text-gray-900 mb-4">Verificação de Disponibilidade</h4>
-                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                   <p className="text-blue-800 text-sm">
-                     A verificação de disponibilidade agora é feita através da tela dedicada "Verificar Disponibilidade" no menu principal.
-                   </p>
-                   <Link 
-                     href="/dashboard/verificar-disponibilidade" 
-                     className="inline-flex items-center mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                   >
-                     Ir para Verificação de Disponibilidade →
-                   </Link>
-                 </div>
-               </div>
+              {/* Botão de Verificação de Disponibilidade */}
+              <div className="border-t pt-6">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-lg font-medium text-gray-900">Verificação de Disponibilidade</h4>
+                  {!editingBooking && (
+                    <button
+                      type="button"
+                      onClick={checkAvailability}
+                      disabled={isChecking}
+                      className="px-4 py-2 rounded-lg transition-colors bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed flex items-center"
+                    >
+                      {isChecking ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Verificando...
+                        </>
+                      ) : (
+                        <>
+                          🔍 Verificar Disponibilidade
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <p className="text-blue-800 text-sm">
+                    {editingBooking 
+                      ? 'Na edição, a verificação de disponibilidade não é necessária.'
+                      : 'Clique no botão acima para verificar se todos os itens selecionados estão disponíveis para o período escolhido.'
+                    }
+                  </p>
+                </div>
+              </div>
 
                <div className="flex justify-end space-x-3 pt-6 border-t">
                 <button

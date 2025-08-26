@@ -52,8 +52,17 @@ export default function ConfiguracoesPage() {
       const response = await fetch('/api/company-settings')
       if (response.ok) {
         const data = await response.json()
-        setSettings(data)
-        setOriginalSettings(data)
+        // Mapear os dados para incluir o id
+        const mappedData = {
+          id: data.id || '',
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          cnpj: data.cnpj || ''
+        }
+        setSettings(mappedData)
+        setOriginalSettings(mappedData)
       } else {
         showToast({
           type: 'error',
@@ -99,15 +108,28 @@ export default function ConfiguracoesPage() {
         return
       }
 
+      // Preparar dados para envio (sem o id)
+      const dataToSend = {
+        name: settings.name.trim(),
+        email: settings.email.trim(),
+        phone: settings.phone.trim(),
+        address: settings.address.trim(),
+        cnpj: settings.cnpj.trim()
+      }
+
       const response = await fetch('/api/company-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(dataToSend)
       })
 
       if (response.ok) {
         const result = await response.json()
-        setOriginalSettings(settings)
+        // Atualizar com os dados retornados da API
+        if (result.data) {
+          setSettings(result.data)
+          setOriginalSettings(result.data)
+        }
         setHasChanges(false)
         
         showToast({
@@ -115,9 +137,6 @@ export default function ConfiguracoesPage() {
           title: 'Sucesso!',
           message: 'Configurações da empresa atualizadas com sucesso!'
         })
-
-        // Recarregar configurações para garantir sincronização
-        await loadCompanySettings()
       } else {
         const errorData = await response.json()
         showToast({

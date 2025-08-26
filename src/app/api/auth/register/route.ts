@@ -1,37 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createUser } from '@/lib/auth'
+import { createCompany, createUser, getUserByEmail } from '@/lib/auth-server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name } = await request.json()
-
-    if (!email || !password || !name) {
+    const { companyName, name, email, password } = await request.json()
+    
+    // Validação básica
+    if (!companyName || !name || !email || !password) {
       return NextResponse.json(
-        { error: 'Email, senha e nome são obrigatórios' },
+        { error: 'Todos os campos são obrigatórios' },
         { status: 400 }
       )
     }
-
-    const user = await createUser(email, password, name)
-
-    return NextResponse.json({
-      message: 'Usuário criado com sucesso',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name
-      }
-    })
-  } catch (error) {
-    console.error('Erro ao criar usuário:', error)
     
-    if (error instanceof Error && error.message.includes('Unique constraint')) {
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: 'Email já está em uso' },
-        { status: 409 }
+        { error: 'A senha deve ter pelo menos 6 caracteres' },
+        { status: 400 }
       )
     }
-
+    
+    // Verificar se o email já existe
+    const existingUser = await getUserByEmail(email)
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Este email já está em uso' },
+        { status: 400 }
+      )
+    }
+    
+    // Criar empresa
+    const company = await createCompany(companyName, email)
+    
+    // Criar usuário
+    const user = await createUser(email, password, name, company.id)
+    
+    // Retornar sucesso
+    return NextResponse.json({
+      message: 'Usuário criado com sucesso!',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        company: user.company
+      }
+    })
+    
+  } catch (error) {
+    console.error('Erro no registro:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

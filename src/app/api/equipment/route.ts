@@ -1,9 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-export async function GET() {
+// Função para obter companyId da sessão
+async function getCompanyIdFromSession(request: NextRequest): Promise<string | null> {
   try {
+    const sessionId = request.cookies.get('session-id')?.value
+    if (!sessionId) return null
+    
+    const parts = sessionId.split('_')
+    if (parts.length < 2) return null
+    
+    const userId = parts[1]
+    if (!userId) return null
+    
+    // Buscar usuário para obter companyId
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { companyId: true }
+    })
+    
+    return user?.companyId || null
+  } catch (error) {
+    console.error('Erro ao obter companyId:', error)
+    return null
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const companyId = await getCompanyIdFromSession(request)
+    
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
     const equipment = await prisma.equipment.findMany({
+      where: { companyId },
       orderBy: { createdAt: 'desc' }
     })
     
@@ -30,14 +65,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verificar se o código já existe
-    const existingEquipment = await prisma.equipment.findUnique({
-      where: { code }
+    const companyId = await getCompanyIdFromSession(request)
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      )
+    }
+    
+    // Verificar se o código já existe na empresa
+    const existingEquipment = await prisma.equipment.findFirst({
+      where: { 
+        code,
+        companyId
+      }
     })
 
     if (existingEquipment) {
       return NextResponse.json(
-        { error: 'Código já existe no sistema' },
+        { error: 'Código já existe nesta empresa' },
         { status: 400 }
       )
     }
@@ -53,7 +99,8 @@ export async function POST(request: NextRequest) {
         category,
         brand,
         model,
-        isAvailable: true
+        isAvailable: true,
+        companyId
       }
     })
 

@@ -6,9 +6,33 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados...')
 
+  // Criar empresa padrão se não existir
+  let company = await prisma.company.findFirst({
+    where: { email: 'contato@ledrental.com' }
+  })
+
+  if (!company) {
+    company = await prisma.company.create({
+      data: {
+        name: 'LED Rental Company',
+        email: 'contato@ledrental.com',
+        address: 'Rua das Lâmpadas, 123',
+        phone: '(11) 99999-9999',
+        cnpj: '12.345.678/0001-90'
+      }
+    })
+    
+    console.log('✅ Empresa padrão criada')
+  } else {
+    console.log('ℹ️ Empresa padrão já existe')
+  }
+
   // Criar usuário padrão se não existir
-  const existingUser = await prisma.user.findUnique({
-    where: { email: 'admin@ledrental.com' }
+  const existingUser = await prisma.user.findFirst({
+    where: { 
+      email: 'admin@ledrental.com',
+      companyId: company.id
+    }
   })
 
   if (!existingUser) {
@@ -18,33 +42,14 @@ async function main() {
       data: {
         email: 'admin@ledrental.com',
         password: hashedPassword,
-        name: 'Administrador'
+        name: 'Administrador',
+        companyId: company.id
       }
     })
     
     console.log('✅ Usuário administrador criado')
   } else {
     console.log('ℹ️ Usuário administrador já existe')
-  }
-
-  // Criar configurações da empresa se não existir
-  const existingSettings = await prisma.companySetting.findFirst()
-
-  if (!existingSettings) {
-    await prisma.companySetting.create({
-      data: {
-        id: 'default-company',
-        name: 'LED Rental Company',
-        address: 'Rua das Lâmpadas, 123',
-        phone: '(11) 99999-9999',
-        email: 'contato@ledrental.com',
-        cnpj: '12.345.678/0001-90'
-      }
-    })
-    
-    console.log('✅ Configurações da empresa criadas')
-  } else {
-    console.log('ℹ️ Configurações da empresa já existem')
   }
 
   // NOTA: Equipamentos e usuários devem ser criados através da interface do usuário
